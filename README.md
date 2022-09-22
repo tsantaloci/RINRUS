@@ -44,12 +44,12 @@ Currently, RINRUS can generate appropriate QM-cluster model input files for
 
 TODO:  
 -write QM/MM input files with RINRUS-designed QM regions  
--write FSAPT and I/FSAPT input files in PSI4 (scripts to process PSI4 FSAPT calculations and build QM-cluster models of enzymes with non-covalently bonded substrates will be available shortly)  
+-write I/FSAPT input files in PSI4 (scripts to process PSI4 FSAPT calculations and build QM-cluster models of enzymes with non-covalently bonded substrates are available)  
 -write ORCA and TURBOMOLE QM-cluster model input files  
 -automated network graph visualization of RINRUS models  
 
 Current production-level use cases are described in `bin/` with tutorials in bin/README.md  
-The first public release (version 0.2) includes examples 1, 2, and 4 only! Examples 3 and 5 will be available soon.  
+The first public release (version 0.2) includes examples 1 and 2 only! Examples 3 - 5 will be available soon.  
 
 ## Usage example 1 - generating a single or a few input files with probe interaction count ranking 
 

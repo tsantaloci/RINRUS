@@ -33,6 +33,7 @@ $HOME/git/RINRUS/bin/probe -unformated -MC -self "all" 3bwm_h_modify.pdb > 3bwm_
 
 ##Using the example of PDB:3BWM, we will select the PDB residue ID# of three fragments: 300(metal Mg2+), 301 (SAM) and 302 (Catechol - the substrate) as the seed. 3BWM only has one chain, so we must specify chain A throughout. If the PDB does not have chain identifiers, you will need to specify ":XXX" where XXX is residue id number to use them in this step and beyond. If the protein is multimeric, use the chain of your choice for seed fragments. Note that some multimeric x-ray crystal structures may not necessarily have equivalent active sites!
 ##NOTE: If there is no Chain ID in the PDB file, our defaults are wonky and need to be improved. 
+
 8. Run `probe2rins.py`. The seed is a comma-separated list of colon-separated pairs, the first part being the ID of the PDB subunit, the second part being the residue number in that subunit:(Chain:ResID)
 ``` bash
 python3 $HOME/git/RINRUS/bin/probe2rins.py -f 3bwm_h_modify.probe -s A:300,A:301,A:302
@@ -116,12 +117,96 @@ This script will generate a file named `dist_per_res-5.00.dat`, which has same f
 
 3. Once the `res_atom-5.00.dat` file is generated, generate the trimmed PDB model using RINRUS by following steps 9 and 11 of example 1 to protonate the pdbs and generate input files.
 
-## Usage example 3 - generating a single or a few input files with arpeggio ranking by either interaction counts or number of interaction types (will be available in public release shortly!)
+## Usage example 3 - generating a single or a few input files with arpeggio ranking by either interaction counts or number of interaction types: 
+
+#Note: Before starting, ensure that the pdb is cleaned. Use example 1, steps 1 to 7 above to clean your pdb
+1. Make sure openbabel libraries are available to properly use RINRUS with arpeggio
+
+2. Run the arpeggio.py script to generate the contact file 
+````bash
+python3 ~/git/RINRUS/bin/arpeggio/arpeggio.py 2cht_h-TS.pdb
+````  
+
+3. Use the `arpeggio2rins.py` script to generate "contact_counts.dat",  "contype_counts.dat" and, "node_info.dat":
+````bash
+python3 ~/git/RINRUS/bin/arpeggio2rins.py -f 2cht_h-TS.contacts -s C:202
+````
+Then you can choose to use either rank by number of arpeggio contact counts between fragments and seed ('-c contact_counts') or by number of arpeggio interaction types ('-c contype_counts') to generate models. Note that `contact_counts.dat` and `contype_counts.dat` have the same format as `freq_per_res.dat`, while `node_info.dat` has the same format as `res_atoms.dat`. These files can be used interchangeably. 
+
+4. Run rinrus_trim2_pdb.py to generate a specific model, for example the model with the seed and seven most important fragments: 
+ ```bash
+python3 ~/git/RINRUS/bin/rinrus_trim2_pdb.py -pdb 2cht_h-TS.pdb -c contact_counts.dat -s C:202 -model 7
+```
+If you want to generate all the incremental models, use the command above without the '-model' flag
+
+5. Run the pymol_script.py to add hydrogens to cap trimmed residues:
+ ```bash
+python3 ~/git/RINRUS/bin/pymol_scripts.py -resids 202 -pdbfilename res_7.pdb 
+```
+##Note: You can write a bash script to loop over all the models. See example below
+```bash
+ls -lrt| grep -v slurm |awk '{print $9}'|grep -E _atom_info |cut -c 5-6 |cut -d_ -f1>list; mkdir pdbs; for i in `cat list`; do mkdir model-${i}-01; cd model-${i}-01; mv ../res_${i}.pdb .;mv ../res_${i}_atom_info.dat  .;mv ../res_${i}_froz_info.dat .; python3 ~/git/RINRUS/bin/pymol_scripts.py -resids 202 -pdbfilename *.pdb; cp *_h.pdb model-${i}_h.pdb; cp model-${i}_h.pdb ../pdbs/ ; cd ..; done
+```
+7. Run `write_input.py` for a single model to generate a template file and input file. You will have to loop this with python or a shell script to iterate over all possible models.
+```bash
+python3 ~/git/RINRUS/bin/write_input.py -intmp input_temp -c -2 -noh res_7.pdb -adh res_7_h.pdb -format gaussian
+```
 
 ## Usage example 4 - generating a single or a few input files with manual ranking (from SAPT, ML, or from some scheme that doesn't yet interface with RINRUS automatically)
 
-Here we'll discuss the formatting of freq_per_res.dat and res_atoms.dat and how to manually construct these from an arbitrary ranking scheme or a scheme not tabulated internally with RINRUS. Will be available shortly!
+Here we'll discuss the formatting of freq_per_res.dat and res_atoms.dat and how to manually construct these from an arbitrary ranking scheme or a scheme not tabulated internally with RINRUS. 
 
-## Usage example 5 - GENERATE ALL THE THINGS!!! Combinatorial model building from probe and arpeggio (will be available in public release shortly!)
-## Usage example 5a - Combinatorial model building from arpeggio 
+## Usage example 5 - GENERATE ALL THE THINGS!!! Combinatorial model building from probe and arpeggio
+
+## Usage example 5a - Combinatorial model building from arpeggio - Dr. D still needs to proofread this part!
+1. Refer to usage example 3 steps 1 to 3 to generate arpeggio contact files to compute combinations
+
+2. Run combifromcontacts.py script with the defined seed (chain/residue numbers) which takes combinations of the different interactions 
+```bash
+python3 ~/git/RINRUS/combi_script/combifromcontacts.py 2cht_h.contacts A/203 2cht_h.sift 
+```
+This generates LongCombi.dat, SimpCombi.dat, and ModSimpCombi.dat
+
+3. Run genmodelfiles.py to remove redundant models ModSimpCombi.dat file
+```bash
+python3 ~/git/RINRUS/combi_script/genmodelfiles.py ModSimpCombi.dat
+```
+
+4. Use res_atoms_*.dat files generated to prepare modified list of models. The res_atoms_*.dat files are then translated   into their corresponding PDB files 
+```bash 
+ls res_atoms_*.dat > list
+```
+
+5. Open the list and remove "res_atoms_" and ".dat" to leave only the model numbers within list, run the command below after you 
+```bash
+for i in `cat list`; do python3 ~/git/RINRUS/bin/rinrus_trim2_pdb.py -pdb 2cht_h.pdb -s A:203 -ratom res_atoms_${i}.dat; mv res_*_atom_info.dat atom_info_${i}.dat; mv res_*_froz_info.dat froz_info_${i}.dat; mv res_*.pdb model_${i}.pdb; done
+```
+
+6. To identify which pdbs are identical, create a new list of the various model pdb names and run the identifiles.py script
+```bash
+ls model_*.pdb > list
+```
+```bash
+python3 ~/git/RINRUS/combi_script/identifiles.py list
+```
+The generated file (UniqueModels.dat) lists all the unique models and removes redundant models
+
+7. Complete the valences by adding protons to severed bonds and waters via PyMol
+ ```bash 
+ for i in `cat list`; do python3 ~/git/RINRUS/bin/pymol_scripts.py ${i} 203; ~qcheng1/bin/pymol -qc log.pml; done
+ ```
 ## Usage example 5b - Combinatorial model building from probe
+1. Refer to usage example 1 steps 1 to 7 to generate arpeggio probe files to compute combinations
+
+2. Run gen-probe-combi.py script with the defined seed (chain/residue numbers/atom(s)) which takes combinations of the different interactions 
+```bash
+python3 ~/git/RINRUS/git/combi_script/gen-probe-combi.py -f 2cht_h_ac_aligned.probe -seed A/203/C1,O1,C2,O2,C3,O3,C4,O4,C5,O5,C6,O7,C8,C9, C10,C11,HO5,H01,H02,H03,H04,H05,H06,H07
+```
+Note: Multiple seed indices can be indicated by space separation as A/202 A/202 
+
+3. Run the next step which combine multiple step but remember to edit the necessary part
+
+```bash
+ls -lrt| grep -v slurm |awk '{print $9}'|grep -E res_atoms_|cut -c 11-12|cut -d. -f1>list; mkdir pdbs; for i in `cat list`; do mkdir model-${i}-01; cd model-${i}-01; mv ../res_atoms_${i}.dat .; python3 ~/git/RINRUS/bin/rinrus_trim2_pdb.py -s A:203 -ratom res_atoms_${i}.dat -pdb ../2cht_h_ac_aligned.pdb; python3 ~/git/RINRUS/bin/pymol_scripts.py -resids 203 -pdbfilename *.pdb; cp *_h.pdb model-${i}_h.pdb; cp model-${i}_h.pdb ../pdbs/; cp res_atoms_${i}.dat ../pdbs/${i}.dat ; cd ..; done
+```
+Be aware that while the res_atoms_#.dat model sets generated are technically unique to each other, once RINRUS generates the full trimmed QM-models, a lot of the them will no longer be unique and will be identical to others. So there a need to check to determine which QM-models are still unique (and not redundant)
