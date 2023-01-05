@@ -49,7 +49,7 @@ This produces `freq_per_res.dat`, `rin_list.dat`, `res_atoms.dat`, and `*.sif`.
 python3 ~/git/RINRUS/bin/rinrus_trim2_pdb.py -s A:300,A:301,A:302 -pdb 3bwm_h_modify.pdb 
 ```
 
-This generates automatically generate the entire "ladder" of possible models based on a ranking scheme which contain `res_NNN.pdb`, `res_NNN_froz_info.dat` and `res_NNN_atom_info.dat` for the all models, where `NNN` is the number of residues in that model.
+This automatically generates the entire "ladder" of possible models based on a ranking scheme which contain `res_NNN.pdb`, `res_NNN_froz_info.dat` and `res_NNN_atom_info.dat` for the all models, where `NNN` is the number of residues in that model.
 
 #Note: if you want to generate one model based on a any ranking scheme, you will need to use the flag `-model NNN`:
 ```bash
